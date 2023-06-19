@@ -6,12 +6,17 @@ import Loader from './Loader';
 import Error from './Error';
 import StartScreen from './StartScreen';
 import Question from './Question';
+import NextButton from './NextButton';
+import Progress from './Progress';
+import FinishScreen from './FinishScreen';
 
 const initialState = {
   questions: [],
   status: 'loading', // 'loading', 'error', 'ready', 'active', 'finished'
   index: 0,
   answer: null,
+  points: 0,
+  highscore: 0,
 };
 
 function reducer(state, action) {
@@ -27,7 +32,34 @@ function reducer(state, action) {
     case 'start':
       return { ...state, status: 'active' };
     case 'newAnswer':
-      return { ...state, answer: action.payload };
+      const currentQuestion = state.questions.at(state.index);
+      console.log('newAnswer...');
+
+      return {
+        ...state,
+        answer: action.payload,
+        points:
+          action.payload === currentQuestion.correctOption
+            ? state.points + currentQuestion.points
+            : state.points,
+      };
+    case 'nextQuestion':
+      return { ...state, answer: null, index: state.index + 1 };
+    case 'finishQuiz':
+      return {
+        ...state,
+        status: 'finished',
+        highscore:
+          state.points > state.highscore ? state.points : state.highscore,
+      };
+    case 'restart':
+      return {
+        ...state,
+        status: 'ready',
+        index: 0,
+        answer: null,
+        points: 0,
+      };
 
     default:
       throw new Error('Action unkown');
@@ -35,12 +67,14 @@ function reducer(state, action) {
 }
 
 export default function App() {
-  const [{ questions, status, index, answer }, dispatch] = useReducer(
-    reducer,
-    initialState
-  );
+  const [{ questions, status, index, answer, points, highscore }, dispatch] =
+    useReducer(reducer, initialState);
 
   const numQuestions = questions.length;
+  const maxPossiblePoints = questions.reduce(
+    (prev, curr) => prev + curr.points,
+    0
+  );
 
   useEffect(() => {
     async function fetchQuestions() {
@@ -68,10 +102,33 @@ export default function App() {
           <StartScreen numQuestions={numQuestions} dispatch={dispatch} />
         )}
         {status === 'active' && (
-          <Question
-            question={questions[index]}
+          <>
+            <Progress
+              index={index}
+              numQuestions={numQuestions}
+              points={points}
+              maxPossiblePoints={maxPossiblePoints}
+              answer={answer}
+            />
+            <Question
+              question={questions[index]}
+              dispatch={dispatch}
+              answer={answer}
+            />
+            <NextButton
+              dispatch={dispatch}
+              answer={answer}
+              index={index}
+              numQuestions={numQuestions}
+            />
+          </>
+        )}
+        {status === 'finished' && (
+          <FinishScreen
+            points={points}
+            maxPossiblePoints={maxPossiblePoints}
+            highscore={highscore}
             dispatch={dispatch}
-            answer={answer}
           />
         )}
       </Main>
